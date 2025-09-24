@@ -1,0 +1,63 @@
+services:
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--entrypoints.web.address=:80" # Porta HTTP padrão
+      - "--entrypoints.traefik.address=:8080" # Porta para o dashboard
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false" # Apenas expõe contêineres com label
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - webnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)" # Acesse o dashboard em traefik.seudominio.com
+      - "traefik.http.routers.dashboard.entrypoints=web"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_DASHBOARD_USER}:${TRAEFIK_DASHBOARD_HASHED_PASSWORD}"
+
+  spring-app:
+    build: ./spring-app
+    container_name: spring-app
+    depends_on:
+      - postgres-db
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.spring-app-router.entrypoints=web"
+      - "traefik.http.routers.spring-app-router.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.services.spring-app-service.loadbalancer.server.port=8080"
+    networks:
+      - webnet
+
+  postgres-db:
+    image: postgres:14-alpine
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - webnet
+    # ports:
+    #   - "5432:5432"
+
+networks:
+  webnet:
+    driver: bridge
+
+volumes:
+  postgres-data:
