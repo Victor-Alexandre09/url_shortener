@@ -1,11 +1,11 @@
 app:
-  domain: http://localhost:81
+  domain: ${APP_DOMAIN:http://localhost:81}
 
 spring:
   datasource:
-    url: jdbc:postgresql://postgres-db:5432/shortener_db
-    username: user
-    password: password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/shortener_db}
+    username: ${SPRING_DATASOURCE_USERNAME:user}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
